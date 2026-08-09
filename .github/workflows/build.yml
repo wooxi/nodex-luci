@@ -32,7 +32,8 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           cd ..
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o ../openwrt/files/nodex ./cmd/nodex
+          VERSION=${GITHUB_REF_NAME:-dev}
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=$VERSION" -o ../openwrt/files/nodex ./cmd/nodex
 
       - name: Install OpenWrt SDK
         run: |
