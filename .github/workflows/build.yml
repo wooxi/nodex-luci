@@ -14,6 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -23,7 +28,10 @@ jobs:
         run: |
           # 从主仓库拉取 Go 后端源码并编译（路由器版单二进制）
           git clone --depth 1 https://github.com/wooxi/nodex.git src
-          cd src
+          cd src/webui
+          npm ci --no-audit --no-fund
+          npm run build
+          cd ..
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o ../openwrt/files/nodex ./cmd/nodex
 
       - name: Install OpenWrt SDK
