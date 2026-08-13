@@ -4,6 +4,9 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+  # 上游 nodex 主仓库更新时自动构建（自动更新功能）
+  repository_dispatch:
+    types: [upstream-updated]
 
 jobs:
   build:
@@ -13,6 +16,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 上游自动更新触发时：自动递增版本并打 tag（release 由后续 steps 创建）
+      - name: Auto-tag on upstream update
+        if: github.event_name == 'repository_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
+          LAST=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
+          if [ -z "$LAST" ]; then LAST="0.0.0"; fi
+          IFS='.' read -r MAJ MIN PAT <<< "$LAST"
+          PAT=$((PAT + 1))
+          NEW="v${MAJ}.${MIN}.${PAT}"
+          # 同步更新 openwrt/Makefile 版本
+          sed -i "s/PKG_VERSION:=.*/PKG_VERSION:=$MAJ.$MIN.$PAT/" openwrt/Makefile
+          git add openwrt/Makefile
+          git commit -m "chore: bump to ${NEW} (upstream auto-update)" || true
+          git tag "$NEW"
+          git push origin main --tags
+          echo "TAG=$NEW" >> $GITHUB_ENV
 
       - name: Setup Node
         uses: actions/setup-node@v4
