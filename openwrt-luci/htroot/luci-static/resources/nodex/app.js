@@ -35,7 +35,7 @@
     }
 
     function tag(ok, text) {
-        return '<span style="color:' + (ok ? '#159b4d' : '#d23333') + ';font-weight:600">' + esc(text) + '</span>';
+        return '<span class="nx-status-tag ' + (ok ? 'ok' : 'err') + '">● ' + esc(text) + '</span>';
     }
 
     function notify(msg, ok) {
@@ -50,7 +50,7 @@
 
     function protoTag(p) {
         var map = { vless: 'VLESS', vmess: 'VMess', trojan: 'Trojan', shadowsocks: 'SS', hysteria2: 'Hysteria2' };
-        return '<span style="color:#1e88e5;font-weight:600">' + (map[p] || esc(p || '未知')) + '</span>';
+        return '<span style="font-weight:600;color:#2563eb">' + (map[p] || esc(p || '未知')) + '</span>';
     }
 
     function setActiveMenu(page) {
@@ -62,7 +62,7 @@
     // ================= 总览 =================
     function renderOverview() {
         var el = document.getElementById('nodex-content');
-        el.innerHTML = '<div class="nx-empty">加载中...</div>';
+        el.innerHTML = '<div style="color:#888;text-align:center;padding:40px 0"><em>正在加载 NodeX 状态数据...</em></div>';
         Promise.all([api('/status'), api('/users')]).then(function (res) {
             var st = res[0], users = res[1].users || [];
             var nodes = st.nodes || [];
@@ -71,107 +71,117 @@
             var running = st.running || 0;
 
             function nodeState(n) {
-                if (!n.enabled) return '<span style="color:#999">已禁用</span>';
+                if (!n.enabled) return '<span class="nx-status-tag muted">○ 已禁用</span>';
                 var ok = (n.xray && n.xray.running) || (n.hy2 && n.hy2.running);
                 return ok ? tag(true, '正常') : tag(false, '停止');
             }
 
-            // 系统状态仪表盘（大框：统计 + 面板同步）
-            var stats =
-                '<div class="cbi-section cbi-section-node" style="margin-bottom:14px"><div class="cbi-section-node-tabbed"><div class="nx-dash">' +
-                '<div class="nx-dash-item"><div class="num">' + nodes.length + '</div><div class="lbl">节点</div></div>' +
-                '<div class="nx-dash-sep"></div>' +
-                '<div class="nx-dash-item"><div class="num' + (running > 0 ? ' ok' : '') + '">' + running + '</div><div class="lbl">运行中</div></div>' +
-                '<div class="nx-dash-sep"></div>' +
-                '<div class="nx-dash-item"><div class="num' + (online > 0 ? ' ok' : '') + '">' + online + '</div><div class="lbl">在线用户</div></div>' +
-                '<div class="nx-dash-sep"></div>' +
-                '<div class="nx-dash-item"><div class="num">' + fmtBytes(total) + '</div><div class="lbl">总流量</div></div>' +
-                '<div class="nx-dash-sync">' + esc(lastSync || '') + '</div>' +
-                '</div></div></div>';
+            // 面板同步状态徽章 (注入到页头右侧)
+            var panelErrs = nodes.filter(function (n) { return n.panel && n.panel.lastError; });
+            var panelOk = nodes.length > 0 && panelErrs.length === 0;
+            var lastSync = '';
+            nodes.forEach(function (n) { if (n.panel && n.panel.lastSync) lastSync = n.panel.lastSync; });
 
-            // 内核总开关
+            var syncBadge = nodes.length === 0
+                ? '<span style="font-size:12px;color:#888;font-weight:normal">面板未对接</span>'
+                : (panelOk
+                    ? '<span class="nx-status-tag ok" style="font-size:12px;font-weight:normal">● 面板同步正常' + (lastSync ? ' (' + esc(lastSync.slice(11, 16)) + ')' : '') + '</span>'
+                    : '<span class="nx-status-tag err" style="font-size:12px;font-weight:normal" title="' + esc(panelErrs.map(function (n) { return n.name + ': ' + n.panel.lastError; }).join('\n')) + '">● 面板同步异常</span>');
+
+            var extraHeader = document.getElementById('nodex-header-extra');
+            if (extraHeader) {
+                extraHeader.innerHTML = syncBadge;
+            }
+
+            // 1. 4 列独立的现代 KPI 指标卡片 (电脑端 2560px 宽度铺满展开)
+            var kpiHtml = '<div class="nx-kpi-grid">' +
+                '<div class="nx-kpi-card"><div class="nx-kpi-title">配置节点总数</div><div class="nx-kpi-val">' + nodes.length + '</div></div>' +
+                '<div class="nx-kpi-card"><div class="nx-kpi-title">运行中节点</div><div class="nx-kpi-val' + (running > 0 ? ' ok' : '') + '">' + running + '</div></div>' +
+                '<div class="nx-kpi-card"><div class="nx-kpi-title">在线连接用户</div><div class="nx-kpi-val' + (online > 0 ? ' ok' : '') + '">' + online + '</div></div>' +
+                '<div class="nx-kpi-card"><div class="nx-kpi-title">累计上报流量</div><div class="nx-kpi-val">' + fmtBytes(total) + '</div></div>' +
+                '</div>';
+
+            // 2. 内核总开关
             var xrayOn = nodes.filter(function (n) { return n.enabled && n.xray && n.xray.running; }).length;
             var hy2On = nodes.filter(function (n) { return n.enabled && n.hy2 && n.hy2.running; }).length;
             var enTotal = nodes.filter(function (n) { return n.enabled; }).length;
             function kstatus(on, total) {
                 if (on === 0) return tag(false, '已停止');
                 if (on === total) return tag(true, '运行中');
-                return '<span style="color:#c47d14;font-weight:600">' + on + '/' + total + '</span>';
+                return '<span class="nx-status-tag warn">' + on + '/' + total + ' 运行</span>';
             }
-            // 内核总开关（表格化，对齐紧凑）
             function krow(name, dots, status, stopAct, startAct) {
                 return '<tr class="cbi-section-table-row">' +
-                    '<td><b>' + name + '</b></td>' +
+                    '<td><strong>' + name + '</strong></td>' +
                     '<td style="white-space:nowrap">' + dots + '</td>' +
                     '<td>' + status + '</td>' +
                     '<td style="white-space:nowrap;text-align:right">' +
-                    '<input type="button" class="cbi-button cbi-button-negative" style="margin-right:4px" value="停止" onclick="window.nodexKernel(\'' + stopAct + '\')">' +
-                    '<input type="button" class="cbi-button cbi-button-positive" value="启动" onclick="window.nodexKernel(\'' + startAct + '\')">' +
+                    '<input type="button" class="cbi-button cbi-button-reset" value="停止" onclick="window.nodexKernel(\'' + stopAct + '\')"> ' +
+                    '<input type="button" class="cbi-button cbi-button-apply" value="启动" onclick="window.nodexKernel(\'' + startAct + '\')">' +
                     '</td></tr>';
             }
             function kdots(kind) {
-                return nodes.map(function (n) { return '<span class="nx-dot' + (n[kind] && n[kind].running ? ' on' : ' off') + '"></span>'; }).join(' ');
+                return nodes.map(function (n) {
+                    var isRun = n[kind] && n[kind].running;
+                    return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:' + (isRun ? '#10b981' : '#cbd5e1') + '"></span>';
+                }).join('');
             }
-            var kmaster =
-                '<div class="cbi-section cbi-section-node" style="margin-bottom:14px"><div class="cbi-section-node-tabbed"><h3 style="margin:0 0 8px 0">内核总开关</h3>' +
-                '<div class="nx-table-wrap"><table class="cbi-section-table">' +
-                '<tr class="cbi-section-table-titles"><th>内核</th><th>节点状态</th><th>状态</th><th style="text-align:right">操作</th></tr>' +
-                krow('Xray', kdots('xray'), kstatus(xrayOn, enTotal), 'stop-xray', 'start-xray') +
-                krow('Hysteria2', kdots('hy2'), kstatus(hy2On, enTotal), 'stop-hy2', 'start-hy2') +
-                '</table></div></div></div>';
 
-            // 节点列表（名字/类型/状态/操作）
+            var kmaster =
+                '<div class="nx-card">' +
+                '<div class="nx-card-title"><span>⚙️ 内核总开关</span></div>' +
+                '<div class="nx-table-wrap"><table class="cbi-section-table">' +
+                '<tr class="cbi-section-table-titles"><th>内核组件</th><th>节点指示</th><th>运行状态</th><th style="text-align:right">操作</th></tr>' +
+                krow('Xray Core', kdots('xray'), kstatus(xrayOn, enTotal), 'stop-xray', 'start-xray') +
+                krow('Hysteria 2', kdots('hy2'), kstatus(hy2On, enTotal), 'stop-hy2', 'start-hy2') +
+                '</table></div></div>';
+
+            // 3. 节点列表
             var rows = nodes.map(function (n) {
                 return '<tr class="cbi-section-table-row">' +
-                    '<td><b>' + esc(n.name) + '</b></td>' +
+                    '<td><strong>' + esc(n.name) + '</strong></td>' +
                     '<td>' + protoTag(n.protocol) + '</td>' +
                     '<td>' + nodeState(n) + '</td>' +
-                    '<td style="white-space:nowrap">' +
+                    '<td style="white-space:nowrap;text-align:right">' +
                     '<input type="button" class="cbi-button cbi-button-action" value="重启" onclick="window.nodexRestart(\'' + n.id + '\')"> ' +
                     '<input type="button" class="cbi-button cbi-button-action" value="配置" onclick="window.nodexGoEdit(\'' + n.id + '\')">' +
                     '</td></tr>';
             }).join('');
+
             var nodelist =
-                '<div class="cbi-section cbi-section-node" style="margin-bottom:14px"><div class="cbi-section-node-tabbed">' +
-                '<h3 style="margin:0 0 8px 0">节点列表</h3>' +
+                '<div class="nx-card">' +
+                '<div class="nx-card-title"><span>⚡ 节点运行列表</span></div>' +
                 '<div class="nx-table-wrap"><table class="cbi-section-table">' +
-                '<tr class="cbi-section-table-titles"><th>节点</th><th>协议类型</th><th>状态</th><th>操作</th></tr>' +
-                (rows || '<tr><td colspan="4" class="nx-empty">暂无节点</td></tr>') +
-                '</table></div></div></div>';
+                '<tr class="cbi-section-table-titles"><th>节点名称</th><th>协议类型</th><th>状态</th><th style="text-align:right">操作</th></tr>' +
+                (rows || '<tr><td colspan="4" class="cbi-section-table-descr" style="text-align:center">暂无节点数据</td></tr>') +
+                '</table></div></div>';
 
-            // 面板同步状态（供仪表盘右上角展示）
-            var panelErrs = nodes.filter(function (n) { return n.panel && n.panel.lastError; });
-            var panelOk = nodes.length > 0 && panelErrs.length === 0;
-            var lastSync = '';
-            nodes.forEach(function (n) { if (n.panel && n.panel.lastSync) lastSync = n.panel.lastSync; });
-
-            // 用户流量
+            // 4. 用户流量明细
             var urows = users.map(function (u) {
-                return '<tr class="cbi-section-table-row"><td>' + esc(u.node_name || '-') + '</td><td>' + esc(u.uid) + '</td>' +
-                    '<td>' + fmtBytes(u.traffic) + '</td><td>' + esc((u.ips || []).join(', ') || '-') + '</td></tr>';
+                return '<tr class="cbi-section-table-row">' +
+                    '<td><strong>' + esc(u.node_name || '-') + '</strong></td>' +
+                    '<td><code style="padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.08);color:#2563eb">' + esc(u.uid) + '</code></td>' +
+                    '<td>' + fmtBytes(u.traffic) + '</td>' +
+                    '<td>' + esc((u.ips || []).join(', ') || '-') + '</td></tr>';
             }).join('');
-            // 面板同步小标签（放用户流量标题旁，彩色）
-            var syncBadge = nodes.length === 0
-                ? '<span style="font-size:11px;color:#999;font-weight:normal">面板同步 未配置</span>'
-                : (panelOk
-                    ? '<span style="font-size:11px;color:#159b4d;font-weight:normal">● 面板同步正常' + (lastSync ? ' ' + esc(lastSync.slice(11, 16)) : '') + '</span>'
-                    : '<span style="font-size:11px;color:#d23333;font-weight:normal" title="' + esc(panelErrs.map(function (n) { return n.name + ': ' + n.panel.lastError; }).join('\n')) + '">● 面板同步错误</span>');
-            var usercard =
-                '<div class="cbi-section cbi-section-node"><div class="cbi-section-node-tabbed">' +
-                '<h3 style="margin:0 0 8px 0">用户流量 <span style="margin-left:8px">' + syncBadge + '</span></h3>' +
-                '<div class="nx-table-wrap"><table class="cbi-section-table">' +
-                '<tr class="cbi-section-table-titles"><th>节点</th><th>用户</th><th>流量</th><th>在线 IP</th></tr>' +
-                (urows || '<tr><td colspan="4" class="nx-empty">暂无流量数据（用户连接节点后自动统计）</td></tr>') +
-                '</table></div></div></div>';
 
+            var usercard =
+                '<div class="nx-card">' +
+                '<div class="nx-card-title"><span>📈 用户实时流量与连接</span></div>' +
+                '<div class="nx-table-wrap"><table class="cbi-section-table">' +
+                '<tr class="cbi-section-table-titles"><th>所属节点</th><th>用户 UID</th><th>消耗流量</th><th>在线客户端 IP</th></tr>' +
+                (urows || '<tr><td colspan="4" class="cbi-section-table-descr" style="text-align:center;padding:24px 0">暂无在线用户数据（客户端连接节点后自动实时统计）</td></tr>') +
+                '</table></div></div>';
+
+            // 5. 组装输出：4 列卡片 + 50%:50% 双栏并排 + 用户流量底栏
             el.innerHTML =
-                '<div class="nx-grid">' +
-                '<div class="nx-span2">' + stats + '</div>' +
-                kmaster +
-                nodelist +
-                usercard +
-                '</div>';
-        }).catch(function (e) { el.innerHTML = '<div class="nx-msg err">' + esc(e.message) + '</div>'; });
+                kpiHtml +
+                '<div class="nx-dual-grid">' + kmaster + nodelist + '</div>' +
+                usercard;
+
+        }).catch(function (e) {
+            el.innerHTML = '<div class="alert-message error" style="margin:16px 0">数据加载失败: ' + esc(e.message) + '</div>';
+        });
     }
 
     window.nodexKernel = function (action) {
@@ -644,53 +654,78 @@
             .catch(function (e) { notify(e.message || '修改失败', false); });
     };
 
-    // ================= 日志 =================
+    // ================= 运行日志 (专业极客终端风格) =================
     function renderLogs() {
         var el = document.getElementById('nodex-content');
         api('/status').then(function (st) {
             var nodes = st.nodes || [];
-            var sel = '<select class="cbi-input-select" id="nx-log-node">' + nodes.map(function (n) {
+            var sel = '<select class="cbi-input-select nx-log-select" id="nx-log-node">' + nodes.map(function (n) {
                 return '<option value="' + n.id + '">' + esc(n.name) + '</option>';
             }).join('') + '</select>';
-            var typeSel = '<select class="cbi-input-select" id="nx-log-type"><option value="error">错误日志</option><option value="access">访问日志</option></select>';
+            var typeSel = '<select class="cbi-input-select nx-log-select-sm" id="nx-log-type"><option value="error">错误日志</option><option value="access">访问日志</option></select>';
+            
             el.innerHTML =
-                '<div class="cbi-section cbi-section-node"><div class="cbi-section-node-tabbed">' +
-                '<h3 style="margin:0 0 8px 0">运行日志</h3>' +
-                '<div class="nx-logbar">节点 ' + sel + ' 类型 ' + typeSel +
-                '<input type="button" class="cbi-button cbi-button-action" value="刷新" onclick="window.nodexLoadLogs()">' +
-                '<label style="font-size:12px">自动刷新 <input type="checkbox" id="nx-log-auto" checked></label>' +
-                '<span class="info" id="nx-log-info"></span></div>' +
-                '<pre class="nx-pre" id="nx-log-pre">（加载中...）</pre>' +
-                '</div></div>';
+                '<div class="nx-card">' +
+                '<div class="nx-card-title"><span>📜 实时运行日志</span><span id="nx-log-info" class="nx-status-tag muted">加载中...</span></div>' +
+                '<div class="nx-log-toolbar">' +
+                '<div class="nx-log-tool-item"><span class="nx-log-label">选择节点:</span> ' + sel + '</div>' +
+                '<div class="nx-log-tool-item"><span class="nx-log-label">日志类型:</span> ' + typeSel + '</div>' +
+                '<div class="nx-log-tool-item">' +
+                '<input type="button" class="cbi-button cbi-button-action" value="立即刷新" onclick="window.nodexLoadLogs()">' +
+                '</div>' +
+                '<div class="nx-log-tool-item" style="margin-left:auto">' +
+                '<label class="nx-log-check-label"><input type="checkbox" id="nx-log-auto" checked> 自动轮询 (8s)</label>' +
+                '</div>' +
+                '</div>' +
+                '<div class="nx-terminal-wrap">' +
+                '<div class="nx-terminal-header">' +
+                '<span class="nx-term-dot red"></span><span class="nx-term-dot yellow"></span><span class="nx-term-dot green"></span>' +
+                '<span class="nx-term-title">terminal output</span>' +
+                '</div>' +
+                '<pre class="nx-terminal-body" id="nx-log-pre">正在拉取节点实时日志...</pre>' +
+                '</div>' +
+                '</div>';
+                
             window.nodexLoadLogs();
-            setInterval(function () {
-                if (document.getElementById('nx-log-pre') && document.getElementById('nx-log-auto').checked) window.nodexLoadLogs();
+            if (window._nodexLogTimer) clearInterval(window._nodexLogTimer);
+            window._nodexLogTimer = setInterval(function () {
+                var autoBox = document.getElementById('nx-log-auto');
+                if (document.getElementById('nx-log-pre') && autoBox && autoBox.checked) {
+                    window.nodexLoadLogs(true);
+                }
             }, 8000);
-        }).catch(function (e) { el.innerHTML = '<div class="nx-msg err">' + esc(e.message) + '</div>'; });
+        }).catch(function (e) { el.innerHTML = '<div class="alert-message error">' + esc(e.message) + '</div>'; });
     }
 
-    window.nodexLoadLogs = function () {
+    window.nodexLoadLogs = function (isAuto) {
         var node = document.getElementById('nx-log-node');
         if (!node || !node.value) return;
         var type = document.getElementById('nx-log-type').value;
         api('/logs?node=' + node.value + '&type=' + type).then(function (res) {
             var pre = document.getElementById('nx-log-pre');
             var info = document.getElementById('nx-log-info');
+            if (!pre) return;
             var raw = res.logs || '';
             var lines = raw.split('\n').filter(function (l) { return l.trim() !== ''; });
-            if (info) info.textContent = lines.length + ' 行';
-            // 纯 DOM 构建（textContent，不依赖 innerHTML，避免 LuCI 环境渲染异常）
+            if (info) info.textContent = lines.length + ' 行日志 (' + (type === 'error' ? '错误' : '访问') + ')';
+            
             pre.textContent = '';
             lines.forEach(function (l) {
-                var cls = 'lg-info';
-                if (/ERROR|FATAL|failed|refused|rejected/i.test(l)) cls = 'lg-err';
-                else if (/WARN|Warning|deprecated/i.test(l)) cls = 'lg-warn';
-                var m = l.match(/^([0-9]{4}[\-/][0-9]{2}[\-/][0-9]{2}[ T][0-9:.+]{6,})/);
                 var span = document.createElement('span');
-                span.className = cls;
+                span.className = 'nx-log-line';
+                
+                if (/ERROR|FATAL|failed|refused|rejected/i.test(l)) {
+                    span.classList.add('lvl-error');
+                } else if (/WARN|Warning|deprecated/i.test(l)) {
+                    span.classList.add('lvl-warn');
+                } else if (/INFO/i.test(l)) {
+                    span.classList.add('lvl-info');
+                }
+                
+                var m = l.match(/^([0-9]{4}[\-/][0-9]{2}[\-/][0-9]{2}[ T][0-9:.+]{6,})/);
                 if (m) {
                     var ts = document.createElement('span');
-                    ts.className = 'lg-time';
+                    ts.className = 'nx-log-ts';
                     ts.textContent = m[1];
                     span.appendChild(ts);
                     span.appendChild(document.createTextNode(l.slice(m[1].length)));
@@ -700,11 +735,13 @@
                 pre.appendChild(span);
                 pre.appendChild(document.createTextNode('\n'));
             });
-            if (!lines.length) pre.textContent = '（暂无日志）';
+            if (!lines.length) pre.textContent = '（当前节点暂无' + (type === 'error' ? '错误' : '访问') + '日志输出）';
+            
+            // 自动触底滚动
             pre.scrollTop = pre.scrollHeight;
         }).catch(function (e) {
             var pre = document.getElementById('nx-log-pre');
-            if (pre) pre.innerHTML = '<span style="color:#f07171">' + esc(e.message) + '</span>';
+            if (pre) pre.innerHTML = '<span style="color:#ef4444">⚠️ 日志读取异常: ' + esc(e.message) + '</span>';
         });
     };
 

@@ -1,86 +1,458 @@
 <%
--- NodeX 管理界面（LuCI 原生风格）
+-- NodeX 管理界面（Argon 高级质感 + 专业终端日志完整版）
 -%>
 <%+header%>
-<div id="nodex-app" class="cbi-map">
-    <h2>NodeX 节点管家 <small style="color:#999;font-weight:normal;font-size:12px">Xray + Hysteria2 · Xboard 面板对接</small></h2>
 
-    <div class="cbi-section" style="margin-top:12px">
-        <div class="cbi-section-node">
-            <!-- 导航（LuCI 标签页风格） -->
-            <div class="cbi-tab-container">
-                <ul class="cbi-tabmenu" id="nodex-menu">
-                    <li data-page="overview"><a href="javascript:void(0)" onclick="window.nodexGo('overview')">总览</a></li>
-                    <li data-page="nodes"><a href="javascript:void(0)" onclick="window.nodexGo('nodes')">节点管理</a></li>
-                    <li data-page="panel"><a href="javascript:void(0)" onclick="window.nodexGo('panel')">面板对接</a></li>
-                    <li data-page="system"><a href="javascript:void(0)" onclick="window.nodexGo('system')">系统设置</a></li>
-                    <li data-page="logs"><a href="javascript:void(0)" onclick="window.nodexGo('logs')">运行日志</a></li>
-                </ul>
+<div class="cbi-map" id="cbi-nodex">
+    <!-- 干净通透的页头 -->
+    <div class="nx-top-bar">
+        <div>
+            <h2 name="content" style="margin:0 0 4px 0;font-size:22px;font-weight:700;">NodeX 节点管家</h2>
+            <div class="cbi-map-descr" style="margin:0;font-size:13px;color:#64748b;">
+                Xray + Hysteria2 · Xboard 节点联动与本地分流管家
             </div>
+        </div>
+        <div id="nodex-header-extra"></div>
+    </div>
 
-            <div id="nodex-content" style="padding-top:16px">
-                <div style="color:#999;text-align:center;padding:30px 0">加载中...</div>
-            </div>
+    <!-- 原生单页选项卡导航 -->
+    <div class="cbi-tabcontainer" style="margin-bottom:18px;">
+        <ul class="cbi-tabmenu" id="nodex-menu">
+            <li class="cbi-tab active" data-page="overview"><a href="javascript:void(0)" onclick="window.nodexGo('overview')">总览</a></li>
+            <li class="cbi-tab" data-page="nodes"><a href="javascript:void(0)" onclick="window.nodexGo('nodes')">节点管理</a></li>
+            <li class="cbi-tab" data-page="panel"><a href="javascript:void(0)" onclick="window.nodexGo('panel')">面板对接</a></li>
+            <li class="cbi-tab" data-page="system"><a href="javascript:void(0)" onclick="window.nodexGo('system')">系统设置</a></li>
+            <li class="cbi-tab" data-page="logs"><a href="javascript:void(0)" onclick="window.nodexGo('logs')">运行日志</a></li>
+        </ul>
+    </div>
+
+    <!-- 动态主容器 -->
+    <div id="nodex-content">
+        <div style="color:#64748b;text-align:center;padding:50px 0;">
+            <em>正在加载 NodeX 运行数据...</em>
         </div>
     </div>
 </div>
 
-<script src="/luci-static/resources/nodex/app.js"></script>
+<script src="/luci-static/resources/nodex/app.js?v=20261031_terminal"></script>
+
 <style>
-/* 少量补充样式（LuCI cbi 为主，仅布局辅助） */
-#nodex-app .nx-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-#nodex-app .nx-stat { border:1px solid #e2e7ee; border-radius:6px; padding:12px 14px; background:#fff; }
-html.dark #nodex-app .nx-stat { background:#14181e; border-color:#2d3744; }
-#nodex-app .nx-stat .num { font-size:22px; font-weight:700; }
-#nodex-app .nx-stat .num.ok { color:#159b4d; }
-#nodex-app .nx-stat .lbl { font-size:11px; color:#888; margin-top:2px; }
-#nodex-app .nx-krow { display:flex; align-items:center; gap:12px; padding:7px 0; flex-wrap:wrap; border-bottom:1px solid #f0f2f5; }
-#nodex-app .nx-krow:last-child { border-bottom:none; }
-#nodex-app .nx-kname { font-weight:700; width:100px; }
-#nodex-app .nx-kdots { display:flex; gap:4px; }
-#nodex-app .nx-dot { width:8px; height:8px; border-radius:50%; background:#ccc; display:inline-block; }
-#nodex-app .nx-dot.on { background:#159b4d; }
-#nodex-app .nx-dot.off { background:#d23333; }
-#nodex-app .nx-proto { display:flex; gap:6px; flex-wrap:wrap; }
-#nodex-app .nx-proto-item { padding:6px 14px; border:1px solid #ccc; border-radius:4px; cursor:pointer; font-size:13px; }
-#nodex-app .nx-proto-item.active { background:#1e88e5; color:#fff; border-color:#1e88e5; }
-#nodex-app .nx-pre { background:#10161d; color:#c3cfdb; padding:12px; border-radius:6px; font-size:12px;
-  max-height:60vh; overflow:auto; white-space:pre-wrap; word-break:break-all; font-family:monospace; line-height:1.7; }
-#nodex-app .nx-pre .lg-time { color:#64788f; }
-#nodex-app .nx-pre .lg-warn { color:#e2a344; }
-#nodex-app .nx-pre .lg-err { color:#f07171; font-weight:700; }
-#nodex-app .nx-logbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
-#nodex-app .nx-logbar .info { margin-left:auto; font-size:12px; color:#999; }
-#nodex-app .nx-msg { padding:8px 12px; border-radius:4px; font-size:13px; margin:8px 0; }
-#nodex-app .nx-msg.ok { background:#e8f5e9; color:#2e7d32; }
-html.dark #nodex-app .nx-msg.ok { background:#1b3a22; }
-#nodex-app .nx-msg.err { background:#fdecea; color:#c62828; }
-html.dark #nodex-app .nx-msg.err { background:#3d1f1f; }
-#nodex-app .nx-empty { color:#999; text-align:center; padding:20px 0; font-size:13px; }
-#nodex-app .nx-table-wrap { overflow-x:auto; }
-/* 仪表盘大框（整合统计 + 面板同步） */
-#nodex-app .nx-dash { display:flex; align-items:center; gap:0; flex-wrap:wrap; }
-#nodex-app .nx-dash-item { flex:1 1 0; text-align:center; padding:6px 10px; min-width:90px; }
-#nodex-app .nx-dash-item .num { font-size:24px; font-weight:700; }
-#nodex-app .nx-dash-item .num.ok { color:#159b4d; }
-#nodex-app .nx-dash-item .lbl { font-size:11px; color:#888; margin-top:2px; }
-#nodex-app .nx-dash-sep { width:1px; align-self:stretch; background:#e2e7ee; margin:4px 0; }
-html.dark #nodex-app .nx-dash-sep { background:#2d3744; }
-#nodex-app .nx-dash-sync { padding:6px 14px; text-align:right; font-size:12px; color:#888; white-space:nowrap; }
-@media (max-width:700px) {
-    #nodex-app .nx-dash-item { min-width:70px; padding:4px 6px; }
-    #nodex-app .nx-dash-item .num { font-size:18px; }
-    #nodex-app .nx-dash-sync { width:100%; text-align:center; border-top:1px solid #eee; margin-top:6px; padding:8px 0 2px; }
+/* ==================== NodeX 专业级 Argon / LuCI 深度融合样式 ==================== */
+#cbi-nodex {
+    width: 100% !important;
 }
-/* 电脑端双列布局（紧凑） */
-#nodex-app .nx-grid { display:grid; grid-template-columns:1fr; gap:0 14px; align-items:start; }
-@media (min-width:1200px) {
-    #nodex-app .nx-grid { grid-template-columns:1fr 1fr; }
+
+.nx-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
-#nodex-app .nx-span2 { grid-column:1/-1; }
-@media (max-width:700px) {
-    #nodex-app .nx-stats { grid-template-columns:repeat(2,1fr); }
-    #nodex-app .cbi-value-title { width:110px; }
+html.dark .nx-top-bar {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
 }
+
+/* 4 列指标卡片网格 (充分利用电脑大屏 2560px 宽度) */
+.nx-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+@media (max-width: 1024px) {
+    .nx-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 576px) {
+    .nx-kpi-grid { grid-template-columns: 1fr; }
+}
+
+.nx-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+html.dark .nx-kpi-card {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.nx-kpi-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+html.dark .nx-kpi-title { color: #94a3b8; }
+.nx-kpi-val {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.1;
+}
+html.dark .nx-kpi-val { color: #f8fafc; }
+.nx-kpi-val.ok { color: #10b981; }
+
+/* 电脑大屏左右双栏对称 (50% : 50%) */
+.nx-dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+@media (max-width: 1024px) {
+    .nx-dual-grid { grid-template-columns: 1fr; }
+}
+
+/* 统一现代卡片容器 */
+.nx-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    margin-bottom: 20px;
+}
+html.dark .nx-card {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.nx-card-title {
+    margin: 0 0 14px 0 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: inherit !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ==================== 彻底修复所有二级页面表单错位 ==================== */
+#cbi-nodex .cbi-section {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 18px 20px !important;
+    margin-bottom: 20px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+}
+html.dark #cbi-nodex .cbi-section {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+#cbi-nodex .cbi-section > legend,
+#cbi-nodex .cbi-section h3 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    margin: 0 0 14px 0 !important;
+    padding: 0 0 6px 0 !important;
+    color: inherit !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    display: block !important;
+    width: 100% !important;
+}
+html.dark #cbi-nodex .cbi-section > legend,
+html.dark #cbi-nodex .cbi-section h3 {
+    border-bottom-color: #334155 !important;
+}
+
+/* 强制每行表单控件水平对齐：左边标题，右边输入框 */
+#cbi-nodex .cbi-value {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 10px 0 !important;
+    margin: 0 !important;
+    border-bottom: 1px solid #f8fafc !important;
+    min-height: 46px !important;
+}
+html.dark #cbi-nodex .cbi-value {
+    border-bottom-color: #273444 !important;
+}
+#cbi-nodex .cbi-value:last-child {
+    border-bottom: none !important;
+}
+
+/* 标签宽度固定、右对齐、整齐排布 */
+#cbi-nodex .cbi-value-title {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+    text-align: right !important;
+    padding-right: 20px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    float: none !important;
+}
+html.dark #cbi-nodex .cbi-value-title {
+    color: #94a3b8 !important;
+}
+
+/* 右侧控件容器 */
+#cbi-nodex .cbi-value-field {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+}
+
+/* 输入框与下拉框 */
+#cbi-nodex .cbi-input-text,
+#cbi-nodex .cbi-input-select {
+    height: 34px !important;
+    line-height: 32px !important;
+    padding: 0 10px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    font-size: 13px !important;
+    background: #ffffff !important;
+    color: inherit !important;
+    box-sizing: border-box !important;
+}
+html.dark #cbi-nodex .cbi-input-text,
+html.dark #cbi-nodex .cbi-input-select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+#cbi-nodex .cbi-input-text:focus,
+#cbi-nodex .cbi-input-select:focus {
+    border-color: #3b82f6 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* 复选框美化对齐 */
+#cbi-nodex input[type="checkbox"] {
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    accent-color: #3b82f6 !important;
+}
+
+/* ==================== 彻底修复协议单选胶囊按钮组 (VLESS / Hysteria2) ==================== */
+#cbi-nodex .nx-proto,
+#cbi-nodex .nx-proto-group {
+    display: inline-flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+}
+#cbi-nodex .nx-proto-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 6px 16px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #334155 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    user-select: none !important;
+}
+#cbi-nodex .nx-proto-item:hover {
+    border-color: #3b82f6 !important;
+    color: #2563eb !important;
+    background: #eff6ff !important;
+}
+#cbi-nodex .nx-proto-item.active {
+    background: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3) !important;
+}
+html.dark #cbi-nodex .nx-proto-item {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+html.dark #cbi-nodex .nx-proto-item.active {
+    background: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+/* ==================== 运行日志：专业级极客暗黑终端视窗 ==================== */
+.nx-log-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+html.dark .nx-log-toolbar {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: #334155;
+}
+.nx-log-tool-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.nx-log-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+}
+html.dark .nx-log-label { color: #94a3b8; }
+.nx-log-select {
+    width: 220px !important;
+    max-width: 220px !important;
+}
+.nx-log-select-sm {
+    width: 140px !important;
+    max-width: 140px !important;
+}
+.nx-log-check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #64748b;
+}
+html.dark .nx-log-check-label { color: #94a3b8; }
+
+/* 终端外壳 (Mac / VS Code 风格) */
+.nx-terminal-wrap {
+    background: #0b0f19;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+.nx-terminal-header {
+    height: 32px;
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 7px;
+    user-select: none;
+}
+.nx-term-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.nx-term-dot.red { background: #ef4444; }
+.nx-term-dot.yellow { background: #f59e0b; }
+.nx-term-dot.green { background: #10b981; }
+.nx-term-title {
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 11px;
+    font-family: Consolas, monospace;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 终端代码滚动视窗 */
+.nx-terminal-body {
+    height: 560px !important;
+    max-height: 560px !important;
+    overflow-y: auto !important;
+    padding: 16px 20px !important;
+    margin: 0 !important;
+    font-family: Consolas, "Fira Code", Monaco, "Courier New", monospace !important;
+    font-size: 12.5px !important;
+    line-height: 1.55 !important;
+    color: #e2e8f0 !important;
+    background: #0b0f19 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+}
+.nx-terminal-body::-webkit-scrollbar {
+    width: 8px;
+}
+.nx-terminal-body::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+}
+.nx-terminal-body::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* 语法高亮 */
+.nx-log-line { display: block; }
+.nx-log-line.lvl-error { color: #f87171 !important; font-weight: 600; }
+.nx-log-line.lvl-warn { color: #fde047 !important; }
+.nx-log-line.lvl-info { color: #38bdf8 !important; }
+.nx-log-ts { color: #64748b; margin-right: 8px; }
+
+/* 按钮现代精致化 (告别土劣色块) */
+.cbi-button {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 4px 14px !important;
+    height: 30px !important;
+    line-height: 20px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s ease !important;
+}
+.cbi-button-apply, .cbi-button-positive {
+    background: #10b981 !important;
+    color: #ffffff !important;
+}
+.cbi-button-apply:hover, .cbi-button-positive:hover {
+    background: #059669 !important;
+}
+.cbi-button-reset, .cbi-button-negative {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+.cbi-button-reset:hover, .cbi-button-negative:hover {
+    background: #dc2626 !important;
+}
+.cbi-button-action {
+    background: #3b82f6 !important;
+    color: #ffffff !important;
+}
+.cbi-button-action:hover {
+    background: #2563eb !important;
+}
+
+/* 状态标签 */
+.nx-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    font-size: 12px;
+}
+.nx-status-tag.ok { color: #10b981; }
+.nx-status-tag.err { color: #ef4444; }
+.nx-status-tag.warn { color: #f59e0b; }
+.nx-status-tag.muted { color: #94a3b8; }
 </style>
+
 <%+footer%>
