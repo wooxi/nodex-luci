@@ -236,6 +236,7 @@
                 enabled: true,
                 node_id: 1,
                 node_type: '',
+                token: '',
                 forward: { enabled: false, targets: [], fingerprint: 'chrome' },
                 node: {
                     protocol: 'vless', port: 8686, uuid: '', tls: 0, cert_path: '', key_path: '', server_name: '',
@@ -393,6 +394,7 @@
             [['vless', 'vless'], ['vmess', 'vmess'], ['trojan', 'trojan'], ['shadowsocks', 'shadowsocks'], ['hysteria', 'hysteria2']].map(function (t) {
                 return '<option value="' + t[0] + '"' + (node.node_type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>';
             }).join('') + '</select></div></div>' +
+            '<div class="cbi-value"><label class="cbi-value-title">节点密钥 token</label><div class="cbi-value-field"><input type="text" class="cbi-input-text" style="width:320px" id="nx-nodetoken" value="' + esc(node.token || '') + '" placeholder="留空使用全局密钥"></div></div>' +
             '<div class="cbi-value"><label class="cbi-value-title"></label><div class="cbi-value-field"><input type="button" class="cbi-button cbi-button-action" value="测试面板连接" onclick="window.nodexTestNodePanel(\'' + id + '\')"></div></div>' +
             '</div></div>' +
 
@@ -440,6 +442,8 @@
             window.nodexEditNode.enabled = enEl.checked;
             if (nidEl) window.nodexEditNode.node_id = parseInt(nidEl.value, 10) || 0;
             if (ntypeEl) window.nodexEditNode.node_type = ntypeEl.value;
+            var ntokEl = document.getElementById('nx-nodetoken');
+            if (ntokEl) window.nodexEditNode.token = ntokEl.value.trim();
             var fwd = window.nodexEditNode.forward || (window.nodexEditNode.forward = {});
             var fe = document.getElementById('nx-fwd-enabled');
             if (fe) {
